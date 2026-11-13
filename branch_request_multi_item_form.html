@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>කාර්යාලීය ලිපිද්‍රව්‍ය කළමනාකරණ පද්ධතිය - යටවත්ත</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for Exporting to Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        .toast-enter {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printableArea, #printableArea * {
+                visibility: visible;
+            }
+            #printableArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-indigo-900 text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-boxes-packing text-2xl text-amber-400"></i>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold tracking-wide leading-tight">ප්‍රාදේශීය ලේකම් කාර්යාලය යටවත්ත</h1>
+                    <p class="text-xs text-indigo-200">ලිපිද්‍රව්‍ය සහ තොග කළමනාකරණ පද්ධතිය (Stationery & Inventory Hub)</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between sm:justify-end space-x-3">
+                <div class="flex items-center space-x-3 bg-indigo-950/70 px-3 py-1.5 rounded-lg border border-indigo-700/60">
+                    <div class="text-right">
+                        <p id="navUserName" class="text-xs font-bold text-white">අංශ නියෝජිත</p>
+                        <p id="navUserRole" class="text-[10px] text-indigo-300 font-semibold uppercase">අංශය</p>
+                    </div>
+                    <button onclick="openLoginModal()" class="text-xs bg-indigo-700 hover:bg-indigo-600 px-2.5 py-1.5 rounded-md font-semibold transition border border-indigo-500 flex items-center gap-1">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span>ගිණුමට පිවිසෙන්න</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- Dashboard Statistics (Hidden for Branch users) -->
+        <div id="statsSection" class="hidden grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase">මුළු ඉල්ලීම්</p>
+                    <p id="statTotal" class="text-2xl font-bold text-slate-800">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
+                    <i class="fa-solid fa-folder-open"></i>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-amber-500 uppercase">අනුමැතිය අපේක්ෂාවෙන්</p>
+                    <p id="statPending" class="text-2xl font-bold text-amber-600">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-blue-500 uppercase">අනුමත කළ ඒවා</p>
+                    <p id="statApproved" class="text-2xl font-bold text-blue-600">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-emerald-500 uppercase">නිකුත් කළ ඒවා</p>
+                    <p id="statIssued" class="text-2xl font-bold text-emerald-600">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <i class="fa-solid fa-box-open"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Role Sub-navigation Bar for Storekeeper -->
+        <div id="storekeeperNav" class="hidden mb-6 bg-white p-2 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-2">
+            <button id="tabRequestsBtn" onclick="switchStorekeeperTab('requests')" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-indigo-600 text-white shadow-sm flex items-center space-x-2">
+                <i class="fa-solid fa-list-check"></i>
+                <span>ඉල්ලීම් සටහන (Requisitions)</span>
+            </button>
+            <button id="tabStockBtn" onclick="switchStorekeeperTab('stock')" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center space-x-2">
+                <i class="fa-solid fa-warehouse"></i>
+                <span>තොග කළමනාකරණය (Stock Management)</span>
+            </button>
+        </div>
+
+        <!-- Layout Grid -->
+        <div id="mainGrid" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Request Form (Visible to Branch users & Accountant, hidden for Storekeeper) -->
+            <section id="requestSection" class="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 pb-2 border-b flex items-center justify-between">
+                    <span class="flex items-center text-indigo-700"><i class="fa-solid fa-paper-plane mr-2 text-indigo-600 text-xl"></i> ඉල්ලුම් පත්‍රය</span>
+                    <span class="text-xs font-normal text-slate-400">අංශ සඳහා පමණි</span>
+                </h3>
+
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">අංශය</label>
+                        <select id="department" required class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50/50">
+                            <option value="" disabled selected>අංශය තෝරන්න</option>
+                            <option value="ආයතන අංශය">ආයතන අංශය</option>
+                            <option value="ගිණුම් අංශය">ගිණුම් අංශය</option>
+                            <option value="ඉඩම් අංශය">ඉඩම් අංශය</option>
+                            <option value="සමාජ සංවර්ධන අංශය">සමාජ සංවර්ධන අංශය</option>
+                            <option value="සැලසුම් අංශය">සැලසුම් අංශය</option>
+                            <option value="රෙජිස්ට්‍රාර් අංශය">රෙජිස්ට්‍රාර් අංශය</option>
+                            <option value="ඵලදායිතා">ඵලදායිතා</option>
+                            <option value="ක්ෂේත්‍ර අංශය">ක්ෂේත්‍ර අංශය</option>
+                            <option value="විදාතා">විදාතා</option>
+                            <option value="ලේඛනාගාරය">ලේඛනාගාරය</option>
+                            <option value="අස්වැසුම">අස්වැසුම</option>
+                        </select>
+                    </div>
+
+                    <!-- Authorized Officer Selection Section -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-2 flex items-center">
+                            <i class="fa-solid fa-user-lock text-indigo-600 mr-1.5"></i> බලයලත් නිලධාරියාගේ නම
+                        </label>
+                        
+                        <div class="flex items-center space-x-5 mb-2">
+                            <label class="inline-flex items-center text-sm cursor-pointer font-medium text-slate-700">
+                                <input type="radio" name="officerType" value="head" checked onclick="toggleOfficerInput()" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                                <span class="ml-2">අංශ ප්‍රධානි</span>
+                            </label>
+                            <label class="inline-flex items-center text-sm cursor-pointer font-medium text-slate-700">
+                                <input type="radio" name="officerType" value="other" onclick="toggleOfficerInput()" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                                <span class="ml-2">වෙනත්</span>
+                            </label>
+                        </div>
+
+                        <!-- Officer Name Input Box -->
+                        <div id="otherOfficerContainer" class="mt-2">
+                            <input type="text" id="employeeName" value="අංශ ප්‍රධානි" required placeholder="අංශ ප්‍රධානියාගේ නම ඇතුළත් කරන්න" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50/50">
+                        </div>
+                    </div>
+
+                    <!-- Add Item Box (Cart Builder Sub-card) -->
+                    <div class="bg-indigo-50/40 p-4 rounded-xl border border-indigo-100/80 space-y-3">
+                        <div class="text-xs font-bold text-indigo-900 uppercase flex items-center space-x-1.5">
+                            <i class="fa-solid fa-cart-plus text-indigo-600 text-sm"></i>
+                            <span>භාණ්ඩ ඉල්ලුම් ලැයිස්තුවට එක් කරන්න</span>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">ලිපිද්‍රව්‍ය / භාණ්ඩ වර්ගය</label>
+                            <select id="stationeryItem" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                                <option value="" disabled selected>භාණ්ඩය තෝරන්න</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">ප්‍රමාණය</label>
+                                <input type="number" id="quantity" min="1" max="500" value="1" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">ප්‍රමුඛතාවය</label>
+                                <select id="priority" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                                    <option value="සාමාන්‍ය">සාමාන්‍ය</option>
+                                    <option value="අත්‍යවශ්‍යයි">අත්‍යවශ්‍යයි 🔥</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="button" onclick="addItemToCart()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 rounded-lg shadow-sm transition text-xs flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-plus text-amber-400"></i>
+                            <span>ලැයිස්තුවට එක් කරන්න</span>
+                        </button>
+                    </div>
+
+                    <!-- Selected Items List / Cart Display -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between text-xs font-bold">
+                            <span class="text-slate-700 uppercase">ඉල්ලීම් කිරීමට තෝරාගත් භාණ්ඩ</span>
+                            <span id="cartCountBadge" class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-[11px]">0ක් ඇතුළත් කර ඇත</span>
+                        </div>
+
+                        <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                            <table class="w-full text-xs text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-500 uppercase border-b border-slate-200">
+                                        <th class="p-2.5 font-semibold">භාණ්ඩය</th>
+                                        <th class="p-2.5 font-semibold text-center">ප්‍රමාණය</th>
+                                        <th class="p-2.5 font-semibold">ප්‍රමුඛතාවය</th>
+                                        <th class="p-2.5 font-semibold text-right">ඉවත් කරන්න</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cartTableBody" class="divide-y divide-slate-100">
+                                    <tr>
+                                        <td colspan="4" class="p-4 text-center text-slate-400 italic">
+                                            භාණ්ඩ තවම ලැයිස්තුවට එක් කර නොමැත.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Final Submission Button -->
+                    <button type="button" onclick="submitBatchRequest()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-200 transition flex items-center justify-center space-x-2 text-sm">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>ලැයිස්තුව යොමු කරන්න (ගණකාධිකාරීට දැනුම් දෙන්න)</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Request List Log (Visible to Accountant & Storekeeper) -->
+            <section id="listSection" class="hidden lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b gap-2 mb-4">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center">
+                        <i class="fa-solid fa-list-check mr-2 text-indigo-600"></i> ඉල්ලීම් සටහන සහ තත්ත්වය
+                    </h3>
+                    
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Excel Export Button -->
+                        <button id="excelBtn" onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition flex items-center space-x-1 shadow-sm">
+                            <i class="fa-solid fa-file-excel text-sm"></i>
+                            <span>Excel ලබාගන්න</span>
+                        </button>
+
+                        <!-- Storekeeper Print Button -->
+                        <button id="printBtn" onclick="printStorekeeperReport()" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition flex items-center space-x-1 shadow-sm">
+                            <i class="fa-solid fa-print text-sm"></i>
+                            <span>ගබඩාකරු මුද්‍රණය</span>
+                        </button>
+
+                        <select id="filterStatus" onchange="renderRequests()" class="border border-slate-300 text-xs rounded-md px-2 py-1 outline-none">
+                            <optgroup label="තත්ත්වය අනුව (By Status)">
+                                <option value="All">සියලුම ඉල්ලීම්</option>
+                                <option value="Branch">අංශ ඉල්ලීම් (Branch Requests)</option>
+                                <option value="Pending">අනුමැතිය අපේක්ෂාවෙන්</option>
+                                <option value="Approved">අනුමත කළ ඒවා</option>
+                                <option value="Issued">නිකුත් කළ ඒවා</option>
+                                <option value="Rejected">ප්‍රතික්ෂේපිත</option>
+                            </optgroup>
+                            <optgroup label="අංශය අනුව (By Department)">
+                                <option value="DEPT:ආයතන අංශය">ආයතන අංශය</option>
+                                <option value="DEPT:ගිණුම් අංශය">ගිණුම් අංශය</option>
+                                <option value="DEPT:ඉඩම් අංශය">ඉඩම් අංශය</option>
+                                <option value="DEPT:සමාජ සංවර්ධන අංශය">සමාජ සංවර්ධන අංශය</option>
+                                <option value="DEPT:සැලසුම් අංශය">සැලසුම් අංශය</option>
+                                <option value="DEPT:රෙජිස්ට්‍රාර් අංශය">රෙජිස්ට්‍රාර් අංශය</option>
+                                <option value="DEPT:ඵලදායිතා">ඵලදායිතා</option>
+                                <option value="DEPT:ක්ෂේත්‍ර අංශය">ක්ෂේත්‍ර අංශය</option>
+                                <option value="DEPT:විදාතා">විදාතා</option>
+                                <option value="DEPT:ලේඛනාගාරය">ලේඛනාගාරය</option>
+                                <option value="DEPT:අස්වැසුම">අස්වැසුම</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Requests Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 uppercase text-xs font-semibold border-b border-slate-200">
+                                <th class="p-3">අංකය</th>
+                                <th class="p-3">අංශය / නිලධාරියා</th>
+                                <th class="p-3">භාණ්ඩය සහ ප්‍රමාණය</th>
+                                <th class="p-3">තත්ත්වය</th>
+                                <th class="p-3 text-right">ක්‍රියාමාර්ග</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requestsTableBody" class="divide-y divide-slate-100">
+                            <!-- Dynamically loaded -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Storekeeper Stock Management Section (Visible ONLY to Storekeeper) -->
+            <section id="stockManagementSection" class="hidden lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Add/Update Stock Form -->
+                <div class="lg:col-span-1 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 pb-2 border-b flex items-center justify-between">
+                        <span><i class="fa-solid fa-boxes-stacked mr-2 text-emerald-600"></i> නව තොග ඇතුළත් කිරීම</span>
+                        <span class="text-xs font-normal text-slate-400">ගබඩාකරු</span>
+                    </h3>
+
+                    <form id="stockForm" onsubmit="handleStockSubmit(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">භාණ්ඩ වර්ගය</label>
+                            <select id="stockCategory" onchange="updateStockItemDropdown()" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                                <option value="" disabled selected>වර්ගීකරණය තෝරන්න</option>
+                                <option value="General Stationery">📝 ලිපිද්‍රව්‍ය සහ පොත් (General Stationery)</option>
+                                <option value="Toners & Inks">🖨️ ටෝනර් සහ ඉන්ක් කාට්රිජ් (Toners & Inks)</option>
+                                <option value="Utilities & Cleaning">🧹 උපකරණ, නඩත්තු සහ පවිත්‍රකාරක (Utilities)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">භාණ්ඩයේ නම</label>
+                            <div class="flex space-x-2">
+                                <select id="stockItemSelect" onchange="autoFillItemDetails()" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                                    <option value="">ලැයිස්තුවෙන් තෝරන්න...</option>
+                                </select>
+                            </div>
+                            <input type="text" id="stockCustomItem" placeholder="හෝ නව භාණ්ඩයක නමක් මෙතැන ටයිප් කරන්න" class="w-full mt-2 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">එකතු කරන ප්‍රමාණය</label>
+                                <input type="number" id="stockQty" min="1" required placeholder="0" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">මැනුම් ඒකකය</label>
+                                <select id="stockUnit" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                                    <option value="පැකට්">පැකට් (Packets)</option>
+                                    <option value="පොත්">පොත් (Books)</option>
+                                    <option value="කෑලි">කෑලි (Units/Pcs)</option>
+                                    <option value="බෝතල්">බෝතල් (Bottles)</option>
+                                    <option value="රෝල්">රෝල් (Rolls)</option>
+                                    <option value="කාටන්">කාටන් (Boxes/Cartons)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">අවම තොග සීමාව (Re-order level)</label>
+                                <input type="number" id="stockMinQty" min="1" value="5" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">ගබඩා රැක් / ස්ථානය</label>
+                                <input type="text" id="stockLocation" placeholder="උදා: Rack A-02" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow transition flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-plus-circle"></i>
+                            <span>තොගයට එකතු කරන්න (Add Stock)</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Stock Inventory List Table -->
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b gap-2 mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 flex items-center">
+                                <i class="fa-solid fa-warehouse mr-2 text-emerald-600"></i> පවත්නා තොග ලේඛනය (Current Inventory)
+                            </h3>
+                            <p class="text-xs text-slate-400">ගබඩාවේ දැනට පවතින සියලුම ලිපිද්‍රව්‍ය ප්‍රමාණයන්</p>
+                        </div>
+
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="stockSearchInput" onkeyup="renderInventoryTable()" placeholder="භාණ්ඩ නම සොයන්න..." class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-500 uppercase text-xs font-semibold border-b border-slate-200">
+                                    <th class="p-3">භාණ්ඩයේ නම</th>
+                                    <th class="p-3">වර්ගීකරණය</th>
+                                    <th class="p-3 text-center">ශේෂය</th>
+                                    <th class="p-3">ස්ථානය</th>
+                                    <th class="p-3">තත්ත්වය</th>
+                                    <th class="p-3 text-right">ක්‍රියාමාර්ග</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventoryTableBody" class="divide-y divide-slate-100">
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Printable Storekeeper Sheet (Hidden from Screen View) -->
+    <div id="printableArea" class="hidden p-8 bg-white text-black">
+        <div class="text-center border-b-2 border-black pb-4 mb-6">
+            <h1 class="text-2xl font-bold uppercase">ගබඩා භාණ්ඩ නිකුත් කිරීමේ වාර්තාව (Store Issue Sheet)</h1>
+            <p class="text-sm">කාර්යාලීය ලිපිද්‍රව්‍ය කළමනාකරණ පද්ධතිය - යටවත්ත</p>
+            <p class="text-xs text-right mt-2">දිනය: <span id="printDate"></span></p>
+        </div>
+
+        <table class="w-full border-collapse border border-black text-sm mb-6">
+            <thead>
+                <tr class="bg-gray-200 border-b border-black">
+                    <th class="border border-black p-2 text-left">අංකය</th>
+                    <th class="border border-black p-2 text-left">අංශය / දෙපාර්තමේන්තුව</th>
+                    <th class="border border-black p-2 text-left">ඉල්ලුම් කළ නිලධාරියා</th>
+                    <th class="border border-black p-2 text-left">භාණ්ඩයේ නම</th>
+                    <th class="border border-black p-2 text-center">ප්‍රමාණය</th>
+                    <th class="border border-black p-2 text-center">තත්ත්වය</th>
+                    <th class="border border-black p-2 text-left">ලබාගත් අයගේ අත්සන</th>
+                </tr>
+            </thead>
+            <tbody id="printTableBody">
+                <!-- Loaded dynamically -->
+            </tbody>
+        </table>
+
+        <div class="grid grid-cols-2 gap-8 mt-16 pt-8 text-xs">
+            <div class="text-center border-t border-black pt-2">
+                <p>......................................................</p>
+                <p class="font-bold">ගබඩා භාරකරුගේ අත්සන</p>
+            </div>
+            <div class="text-center border-t border-black pt-2">
+                <p>......................................................</p>
+                <p class="font-bold">ගණකාධිකාරීගේ අනුමැතිය</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
+            <div class="bg-indigo-900 px-6 py-4 text-white flex justify-between items-center">
+                <h3 class="font-bold text-lg flex items-center">
+                    <i class="fa-solid fa-shield-halved mr-2"></i> පද්ධතියට පිවිසීම (Admin Login)
+                </h3>
+                <button onclick="closeLoginModal()" class="text-indigo-200 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <form onsubmit="handleLogin(event)" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">පරිශීලක නාමය (Username)</label>
+                        <input type="text" id="loginUser" required placeholder="පරිශීලක නාමය ඇතුළත් කරන්න" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">මුරපදය (Password)</label>
+                        <input type="password" id="loginPass" required placeholder="මුරපදය ඇතුළත් කරන්න" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-800 hover:bg-indigo-900 text-white font-bold py-2.5 rounded-lg shadow transition">
+                        ඇතුළු වන්න (Login)
+                    </button>
+                </form>
+                           </div>
+        </div>
+    </div>
+
+    <!-- Process Action Modal -->
+    <div id="actionModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
+            <div id="actionModalHeader" class="bg-indigo-800 px-6 py-4 text-white flex justify-between items-center">
+                <h3 id="actionModalTitle" class="font-bold text-lg flex items-center">
+                    <i class="fa-solid fa-user-check mr-2"></i> ඉල්ලීම පරීක්ෂා කිරීම
+                </h3>
+                <button onclick="closeActionModal()" class="text-indigo-200 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div id="modalDetails" class="bg-slate-50 p-4 rounded-lg text-sm space-y-1 border border-slate-200">
+                    <!-- Dynamic Details -->
+                </div>
+
+                <!-- Accountant Controls -->
+                <div id="accountantControls" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">ගණකාධිකාරී සටහන්</label>
+                        <textarea id="accountantRemark" rows="2" placeholder="අනුමත කිරීම හෝ ප්‍රතික්ෂේප කිරීම පිළිබඳ සටහන..." class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="processAccountantAction('Approved')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg shadow transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-check"></i>
+                            <span>අනුමත කරන්න</span>
+                        </button>
+                        <button onclick="processAccountantAction('Rejected')" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-lg shadow transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-xmark"></i>
+                            <span>ප්‍රතික්ෂේප කරන්න</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Storekeeper Controls -->
+                <div id="storekeeperControls" class="space-y-3 hidden">
+                    <div id="stockAvailableInfo" class="text-xs p-2.5 rounded-lg font-semibold"></div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">ගබඩාකරු වවුචර් / නිකුත් කිරීමේ සටහන</label>
+                        <textarea id="storekeeperRemark" rows="2" placeholder="නිකුත් කිරීම පිළිබඳ විස්තර..." class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+                    </div>
+                    <button onclick="processStorekeeperIssue()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow transition flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-box-open"></i>
+                        <span>තහවුරු කර භාණ්ඩ නිකුත් කරන්න</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Stock Modal -->
+    <div id="editStockModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
+            <div class="bg-emerald-700 px-6 py-4 text-white flex justify-between items-center">
+                <h3 class="font-bold text-lg flex items-center">
+                    <i class="fa-solid fa-pen-to-square mr-2"></i> තොග වෙනස් කිරීම
+                </h3>
+                <button onclick="closeEditStockModal()" class="text-emerald-200 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="editStockItemName">
+                <div>
+                    <p class="text-xs text-slate-400 font-bold uppercase">භාණ්ඩයේ නම</p>
+                    <p id="editStockTitle" class="text-base font-bold text-slate-800"></p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">නව තොග ප්‍රමාණය (ශේෂය)</label>
+                    <input type="number" id="editStockQuantity" min="0" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">ගබඩා රැක් / ස්ථානය</label>
+                    <input type="text" id="editStockLocation" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <button onclick="saveStockEdit()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg shadow transition">
+                    සුරකින්න (Save Changes)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-3 pointer-events-none"></div>
+
+    <script>
+        const ACCOUNTANT_MOBILE = '0751822949';
+
+        const USERS = {
+            'accountant': { name: 'ජී.එම්.ඩබ්.එම්.පි.එම්.වික්‍රමසිංහ (ගණකාධිකාරී)', role: 'accountant', pass: 'acc123' },
+            'storekeeper': { name: 'එච්.ජී. නන්දසේන (ගබඩාකරු)', role: 'storekeeper', pass: 'store123' }
+        };
+
+        const GUEST_BRANCH_USER = { name: 'අංශ නිලධාරී (Branch Officer)', role: 'branch' };
+
+        // Buffer for items in branch request cart
+        let requestCart = [];
+
+        const STATIONERY_ITEMS_CATALOG = {
+            "General Stationery": [
+                "A3", "A4", "B 5 SHEETS", "Half Sheet (හාෆ් ෂීට්)", "Color A4", "Legal", "ඩිමයි පේපර්", "රෝනියෝ කඩදාසි", 
+                "බිසිල් බෝඩ්", "වාර්නිෂ් කොළ", "Transparent Sheet", "Sticker Note Pad", "කාබන් කොළ", "Box File", "Edmen file", 
+                "Petten file", "කැබිනට් ෆයිල්", "මුද්‍රිත ලිපිගොනු කවර", "ලිපිගොනු කවර", "ෆයිල් හෝල්ඩර් 4“", "ෆයිල් හෝල්ඩර් 6“", 
+                "ෆයිල් ක්ලිප්ස්", "ෆයිල් ටැග්ස්", "ලියුම් කවර 6 X 4", "ලියුම් කවර 9 X 4", "ලියුම් කවර 9 X 6", "ලියුම් කවර 10 X 8", 
+                "ලියුම් කවර 12 X 16", "CR I පොත් (පිටු 40)", "CR II පොත් (පිටු 80)", "CR III පොත් (පිටු 120)", "CR IV පොත් (පිටු 160)", 
+                "CR V පොත් (පිටු 200)", "Field Note Book", "COMPUTER S (1 PLY 12X15)", "COMPU (1 PLY 9 1/2 X 11)", "COMPUT (2 PLY 9 1/2 X 11)", 
+                "COMPUT (3 PLY 9 1/2 X 11)", "අත්සන් පෑන්", "කාබන් පෑන් (කළු)", "කාබන් පෑන (නිල්)", "කාබන් පෑන් (රතු)", "පැලැටිග්නම් පෑන්", 
+                "Permanent Marker", "Whiteboard Marker", "Highlight Pens", "පැන්සල්", "මකන කෑලි", "මකන දියර", "Whiteboard Duster", 
+                "Ink Pad", "Pad Ink", "Double Tape", "Drawing Pin", "ඇල්පෙනෙති", "ගම් ටේප් 1“", "ගම් ටේප් 2“", "ගම් බෝතල් (පොඩි)", 
+                "ගම් බෝතල් (ලොකු)", "බයින්ඩින් ගම් (පොඩි)", "බයින්ඩින් ගම් (ලොකු)", "බයින්ඩින් ටේප්", "මාස්කින් ටේප් 1“", "මාස්කින් ටේප් 2“", 
+                "සෙලෝටේප් 1“", "සෙලෝටේප් 2“", "ටුවයින් නූල්", "බුල්ඩෝ ක්ලිප්ස්", "රබර් බෑන්ඩ් පැකට්", "ස්ටේප්ලර් කටු (369)", 
+                "ස්ටේප්ලර් කටු 23/8", "MBM PIN 23/13", "MBM PIN 23/15", "MBM PIN 23/17", "ස්ටේප්ලර් රිමුවර්", "අඩිරූල් (ප්ලාස්ටික්)", 
+                "CD - R", "CD - RW", "DVD"
+            ],
+            "Toners & Inks": [
+                "CANON NPG 84 TONER IR 26251", "CANON NPG 59 TONER IR 2006N", "T2323P-TOSHIBA STUDIO", "TOSHIBA e studio T 2309 P a toner", 
+                "EPSON M 100 INK CARTILAGE", "EPSON L 130 CARTILAGE (COLOUR)", "EPSON LQ 2190 RIBAN", "EPSON LQ 310 RIBAN", 
+                "HP LASER JET 1102 Toner (85A)", "HP LASER JET PRO M 102 a", "HP 166 A", "SAMSUNG ML 2161 TONER (101 S)", 
+                "SAMSUNG M 2020 TONER (111 S)", "SHARP TONER MX 235AT", "1866 (1043) TONER", "රිසෝ CZ 180 INK", "රිසෝ මාස්ටර් රෝල්", 
+                "Typing ribbon", "රතු රිබන්", "ෆැක්ස් රෝල්"
+            ],
+            "Utilities & Cleaning": [
+                "අත් ආවරණ (Reuse Gloves)", "අත් ආවරණ (Surgical Gloves)", "අත්පිස්නා", "අත්මුල්ලු", "ඉටිපන්දම්", "කාර්යාල ධජය", 
+                "පළාත් කොඩි", "පතාක කොඩි", "කැල්කියුලේටර්", "කුඩා කතුරු", "කුණු කූඩ", "ගිගුම් වෙඩි (අලිවෙඩි කුඩා)", "චාමර", 
+                "දෑත් සේදූම් කාරක දියර (Hand Wash)", "හෑන්ඩ් සැනිටයිසර් 50ml බෝතල්", "සැනිටයිසර්", "පන්චර්", "පරිගණක මූසික", 
+                "පරිගණක යතුරුපුවරු", "පේපර් කටර්", "බල්බ්", "බල්බ් 5 W", "බැටරි (පොඩි)", "බැටරි (ලොකු)", "බැටරි 9v", 
+                "මල්ටි ප්ලග්", "මුඛ ආවරණ", "මුහුණු ආවරණ", "රවුටර්", "වයර්", "PB වයර්", "කේබල්", "විම් සබන්", "විම් දියර", 
+                "සබන්", "ස්ටේප්ලර්", "සෘජුෆෝම් 1\"", "සෘජුෆෝම් ½”", "සෘජුෆෝම් ⅟4 ”", "සෙලෝපින් (ඉටිකවර)", "හීටර් ප්ලග්", 
+                "හෝල්ඩර්", "ෂොපින් බෑග්", "කොසු", "කාර්යාලීය හැඳුනුම්පත්", "පාපිසි", "එයාර් ෆ්‍රෙෂ්නර්", "විදුලි පන්දම්", 
+                "මෝර්ටින් ස්ප්‍රේ", "ටයිල් ක්ලීනර්", "සර්වියට් පේපර්", "ඩස්ට්පෑන්"
+            ]
+        };
+
+        // Inventory Stock Object in LocalStorage
+        let inventory = JSON.parse(localStorage.getItem('stationery_inventory')) || {
+            'A4': { qty: 120, unit: 'පැකට්', category: 'General Stationery', minQty: 10, location: 'Rack A-01' },
+            'CR II පොත් (පිටු 80)': { qty: 45, unit: 'පොත්', category: 'General Stationery', minQty: 5, location: 'Rack B-03' },
+            'HP LASER JET 1102 Toner (85A)': { qty: 8, unit: 'කෑලි', category: 'Toners & Inks', minQty: 2, location: 'Cabinet C-1' },
+            'දෑත් සේදූම් කාරක දියර (Hand Wash)': { qty: 15, unit: 'බෝතල්', category: 'Utilities & Cleaning', minQty: 3, location: 'Store Room 2' }
+        };
+
+        // Requests Array in LocalStorage
+        let requests = JSON.parse(localStorage.getItem('stationery_requests')) || [
+            {
+                id: 'REQ-1001',
+                department: 'ඉඩම් අංශය',
+                employee: 'අංශ ප්‍රධානි',
+                item: 'A4',
+                quantity: 5,
+                priority: 'අත්‍යවශ්‍යයි',
+                status: 'Pending',
+                accountantRemark: '',
+                storeRemark: '',
+                timestamp: '2026-07-24 09:15 AM'
+            }
+        ];
+
+        let currentUser = GUEST_BRANCH_USER;
+        let activeRequestId = null;
+        let activeStorekeeperTab = 'requests'; // 'requests' or 'stock'
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateFormItemDropdown();
+            updateRoleUI();
+            renderRequests();
+            renderInventoryTable();
+            updateStats();
+        });
+
+        function saveInventory() {
+            localStorage.setItem('stationery_inventory', JSON.stringify(inventory));
+        }
+
+        function saveRequests() {
+            localStorage.setItem('stationery_requests', JSON.stringify(requests));
+        }
+
+        function populateFormItemDropdown() {
+            const dropdown = document.getElementById('stationeryItem');
+            dropdown.innerHTML = '<option value="" disabled selected>භාණ්ඩය තෝරන්න</option>';
+
+            const categoryIcons = {
+                "General Stationery": "📝 ලිපිද්‍රව්‍ය සහ පොත් (General Stationery)",
+                "Toners & Inks": "🖨️ ටෝනර් සහ ඉන්ක් කාට්රිජ් (Toners & Inks)",
+                "Utilities & Cleaning": "🧹 උපකරණ, නඩත්තු සහ පවිත්‍රකාරක (Utilities & Cleaning)"
+            };
+
+            for (const [catKey, labelName] of Object.entries(categoryIcons)) {
+                const group = document.createElement('optgroup');
+                group.label = labelName;
+
+                // Existing catalog items
+                const catItems = STATIONERY_ITEMS_CATALOG[catKey] || [];
+                
+                // Also add custom items added to inventory under this category
+                const customItems = Object.keys(inventory).filter(itemKey => inventory[itemKey].category === catKey && !catItems.includes(itemKey));
+                const allCatItems = [...catItems, ...customItems];
+
+                allCatItems.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item;
+                    const inStockQty = inventory[item] ? inventory[item].qty : 0;
+                    opt.textContent = `${item} ${inStockQty > 0 ? `(තොගයේ: ${inStockQty})` : '(තොග නැත)'}`;
+                    group.appendChild(opt);
+                });
+
+                dropdown.appendChild(group);
+            }
+        }
+
+        function toggleOfficerInput() {
+            const selectedRole = document.querySelector('input[name="officerType"]:checked').value;
+            const inputField = document.getElementById('employeeName');
+
+            if (selectedRole === 'head') {
+                inputField.value = 'අංශ ප්‍රධානි';
+                inputField.placeholder = 'අංශ ප්‍රධානියාගේ නම';
+            } else {
+                inputField.value = '';
+                inputField.placeholder = 'නිලධාරියාගේ නම ඇතුළත් කරන්න';
+                inputField.focus();
+            }
+        }
+
+        // Cart Builders and Multi-item Handlers
+        function addItemToCart() {
+            const itemSelect = document.getElementById('stationeryItem');
+            const itemVal = itemSelect.value;
+            const qty = parseInt(document.getElementById('quantity').value);
+            const priority = document.getElementById('priority').value;
+
+            if (!itemVal) {
+                showToast('කරුණාකර භාණ්ඩයක් තෝරන්න!', 'error');
+                return;
+            }
+
+            if (isNaN(qty) || qty < 1) {
+                showToast('වලංගු ප්‍රමාණයක් ඇතුළත් කරන්න!', 'error');
+                return;
+            }
+
+            // Check if item already exists in cart
+            const existingIndex = requestCart.findIndex(i => i.item === itemVal);
+            if (existingIndex !== -1) {
+                requestCart[existingIndex].quantity += qty;
+                requestCart[existingIndex].priority = priority;
+            } else {
+                requestCart.push({ item: itemVal, quantity: qty, priority: priority });
+            }
+
+            renderCartTable();
+            itemSelect.selectedIndex = 0;
+            document.getElementById('quantity').value = 1;
+            showToast(`${itemVal} ලැයිස්තුවට එක් කරන ලදී!`, 'success');
+        }
+
+        function removeFromCart(index) {
+            requestCart.splice(index, 1);
+            renderCartTable();
+            showToast('භාණ්ඩය ලැයිස්තුවෙන් ඉවත් කරන ලදී.', 'info');
+        }
+
+        function renderCartTable() {
+            const tbody = document.getElementById('cartTableBody');
+            const badge = document.getElementById('cartCountBadge');
+            badge.textContent = `${requestCart.length}ක් ඇතුළත් කර ඇත`;
+
+            if (requestCart.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="p-4 text-center text-slate-400 italic">
+                            භාණ්ඩ තවම ලැයිස්තුවට එක් කර නොමැත.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = requestCart.map((item, index) => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="p-2.5 font-medium text-slate-800">${item.item}</td>
+                    <td class="p-2.5 text-center font-bold text-indigo-900">${item.quantity}</td>
+                    <td class="p-2.5">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${item.priority === 'අත්‍යවශ්‍යයි' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}">
+                            ${item.priority}
+                        </span>
+                    </td>
+                    <td class="p-2.5 text-right">
+                        <button onclick="removeFromCart(${index})" class="text-red-500 hover:text-red-700 text-xs font-semibold px-2 py-1 rounded">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function submitBatchRequest() {
+            const dept = document.getElementById('department').value;
+            const officer = document.getElementById('employeeName').value;
+
+            if (!dept) {
+                showToast('කරුණාකර අංශය තෝරන්න!', 'error');
+                return;
+            }
+
+            if (!officer) {
+                showToast('කරුණාකර බලයලත් නිලධාරියාගේ නම ඇතුළත් කරන්න!', 'error');
+                return;
+            }
+
+            if (requestCart.length === 0) {
+                showToast('ලැයිස්තුවට අවම වශයෙන් එක් භාණ්ඩයක් හෝ එක් කරන්න!', 'error');
+                return;
+            }
+
+            const timestamp = new Date().toLocaleString('si-LK', { hour12: true });
+
+            // Create individual request entry per item from cart
+            requestCart.forEach(cartItem => {
+                const newReq = {
+                    id: 'REQ-' + Math.floor(1000 + Math.random() * 9000),
+                    department: dept,
+                    employee: officer,
+                    item: cartItem.item,
+                    quantity: cartItem.quantity,
+                    priority: cartItem.priority,
+                    status: 'Pending',
+                    accountantRemark: '',
+                    storeRemark: '',
+                    timestamp: timestamp
+                };
+                requests.unshift(newReq);
+            });
+
+            saveRequests();
+            const itemCount = requestCart.length;
+            const firstItemSummary = requestCart.map(i => `${i.item} (x${i.quantity})`).join(', ');
+
+            // Reset Form and Cart
+            requestCart = [];
+            renderCartTable();
+            document.getElementById('department').selectedIndex = 0;
+            document.querySelector('input[name="officerType"][value="head"]').checked = true;
+            toggleOfficerInput();
+
+            showToast(`භාණ්ඩ ${itemCount}ක ඉල්ලීම් සාර්ථකව යොමු කරන ලදී!`, 'success');
+
+            renderRequests();
+            updateStats();
+
+            // Send SMS alert for batch
+            setTimeout(() => {
+                const message = `නව ලිපිද්‍රව්‍ය ඉල්ලීමක්: ${dept} (${officer}) විසින් භාණ්ඩ ${itemCount}ක් ඉල්ලා ඇත: ${firstItemSummary}. කරුණාකර පද්ධතිය පරීක්ෂා කරන්න.`;
+                const smsUrl = `sms:${ACCOUNTANT_MOBILE}?body=${encodeURIComponent(message)}`;
+                window.location.href = smsUrl;
+            }, 800);
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPass').value.trim();
+
+            if (USERS[u] && USERS[u].pass === p) {
+                currentUser = USERS[u];
+                updateRoleUI();
+                closeLoginModal();
+                showToast(`${currentUser.name} ලෙස සාර්ථකව පිවිසුණි`, 'success');
+                renderRequests();
+                renderInventoryTable();
+            } else {
+                showToast('පරිශීලක නාමය හෝ මුරපදය වැරදියි!', 'error');
+            }
+        }
+
+        function openLoginModal() { document.getElementById('loginModal').classList.remove('hidden'); }
+        function closeLoginModal() { document.getElementById('loginModal').classList.add('hidden'); }
+
+        function updateRoleUI() {
+            document.getElementById('navUserName').textContent = currentUser.name;
+            document.getElementById('navUserRole').textContent = currentUser.role.toUpperCase();
+
+            const reqSection = document.getElementById('requestSection');
+            const listSection = document.getElementById('listSection');
+            const statsSection = document.getElementById('statsSection');
+            const storekeeperNav = document.getElementById('storekeeperNav');
+            const stockManagementSection = document.getElementById('stockManagementSection');
+
+            if (currentUser.role === 'branch') {
+                reqSection.classList.remove('hidden', 'lg:col-span-1');
+                reqSection.classList.add('lg:col-span-3', 'max-w-xl', 'mx-auto', 'w-full');
+                
+                listSection.classList.add('hidden');
+                statsSection.classList.add('hidden');
+                storekeeperNav.classList.add('hidden');
+                stockManagementSection.classList.add('hidden');
+            } else if (currentUser.role === 'accountant') {
+                reqSection.classList.remove('hidden', 'lg:col-span-3', 'max-w-xl', 'mx-auto', 'w-full');
+                reqSection.classList.add('lg:col-span-1');
+
+                listSection.classList.remove('hidden');
+                statsSection.classList.remove('hidden');
+                storekeeperNav.classList.add('hidden');
+                stockManagementSection.classList.add('hidden');
+            } else if (currentUser.role === 'storekeeper') {
+                reqSection.classList.add('hidden');
+                statsSection.classList.remove('hidden');
+                storekeeperNav.classList.remove('hidden');
+
+                switchStorekeeperTab(activeStorekeeperTab);
+            }
+        }
+
+        function switchStorekeeperTab(tab) {
+            activeStorekeeperTab = tab;
+            const listSection = document.getElementById('listSection');
+            const stockManagementSection = document.getElementById('stockManagementSection');
+            const tabRequestsBtn = document.getElementById('tabRequestsBtn');
+            const tabStockBtn = document.getElementById('tabStockBtn');
+
+            if (tab === 'requests') {
+                listSection.classList.remove('hidden', 'lg:col-span-2');
+                listSection.classList.add('lg:col-span-3');
+                stockManagementSection.classList.add('hidden');
+
+                tabRequestsBtn.className = "px-4 py-2 text-xs font-bold rounded-lg transition bg-indigo-600 text-white shadow-sm flex items-center space-x-2";
+                tabStockBtn.className = "px-4 py-2 text-xs font-bold rounded-lg transition bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center space-x-2";
+            } else {
+                listSection.classList.add('hidden');
+                stockManagementSection.classList.remove('hidden');
+
+                tabStockBtn.className = "px-4 py-2 text-xs font-bold rounded-lg transition bg-emerald-600 text-white shadow-sm flex items-center space-x-2";
+                tabRequestsBtn.className = "px-4 py-2 text-xs font-bold rounded-lg transition bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center space-x-2";
+            }
+        }
+
+        // Storekeeper Stock Entry Handlers
+        function updateStockItemDropdown() {
+            const category = document.getElementById('stockCategory').value;
+            const itemSelect = document.getElementById('stockItemSelect');
+            itemSelect.innerHTML = '<option value="">ලැයිස්තුවෙන් තෝරන්න...</option>';
+
+            if (STATIONERY_ITEMS_CATALOG[category]) {
+                STATIONERY_ITEMS_CATALOG[category].forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item;
+                    opt.textContent = item;
+                    itemSelect.appendChild(opt);
+                });
+            }
+        }
+
+        function autoFillItemDetails() {
+            const selectedItem = document.getElementById('stockItemSelect').value;
+            if (selectedItem) {
+                document.getElementById('stockCustomItem').value = selectedItem;
+                if (inventory[selectedItem]) {
+                    document.getElementById('stockUnit').value = inventory[selectedItem].unit || 'පැකට්';
+                    document.getElementById('stockMinQty').value = inventory[selectedItem].minQty || 5;
+                    document.getElementById('stockLocation').value = inventory[selectedItem].location || '';
+                }
+            }
+        }
+
+        function handleStockSubmit(e) {
+            e.preventDefault();
+            const category = document.getElementById('stockCategory').value;
+            const selectVal = document.getElementById('stockItemSelect').value;
+            const customVal = document.getElementById('stockCustomItem').value.trim();
+            const itemName = customVal || selectVal;
+            const addQty = parseInt(document.getElementById('stockQty').value);
+            const unit = document.getElementById('stockUnit').value;
+            const minQty = parseInt(document.getElementById('stockMinQty').value);
+            const location = document.getElementById('stockLocation').value.trim() || 'Main Store';
+
+            if (!itemName) {
+                showToast('කරුණාකර භාණ්ඩයේ නම ඇතුළත් කරන්න!', 'error');
+                return;
+            }
+
+            if (inventory[itemName]) {
+                inventory[itemName].qty += addQty;
+                inventory[itemName].unit = unit;
+                inventory[itemName].minQty = minQty;
+                inventory[itemName].location = location;
+                inventory[itemName].category = category;
+            } else {
+                inventory[itemName] = {
+                    qty: addQty,
+                    unit: unit,
+                    category: category,
+                    minQty: minQty,
+                    location: location
+                };
+            }
+
+            saveInventory();
+            populateFormItemDropdown();
+            renderInventoryTable();
+            document.getElementById('stockForm').reset();
+            document.getElementById('stockItemSelect').innerHTML = '<option value="">ලැයිස්තුවෙන් තෝරන්න...</option>';
+            showToast(`${itemName} තොගය සාර්ථකව යාවත්කාලීන කරන ලදී! (+${addQty} ${unit})`, 'success');
+        }
+
+        function renderInventoryTable() {
+            const tbody = document.getElementById('inventoryTableBody');
+            const search = (document.getElementById('stockSearchInput')?.value || '').toLowerCase();
+
+            const items = Object.keys(inventory).filter(key => key.toLowerCase().includes(search));
+
+            if (items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">තොග දත්ත කිසිවක් හමු නොවීය.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = items.map(itemName => {
+                const item = inventory[itemName];
+                let statusBadge = '';
+
+                if (item.qty === 0) {
+                    statusBadge = `<span class="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 rounded-full border border-red-200">තොග අවසන්</span>`;
+                } else if (item.qty <= item.minQty) {
+                    statusBadge = `<span class="px-2 py-0.5 text-xs font-bold bg-amber-100 text-amber-700 rounded-full border border-amber-200">අවම තොග සීමාවේ</span>`;
+                } else {
+                    statusBadge = `<span class="px-2 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-700 rounded-full border border-emerald-200">තොග පවතී</span>`;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="p-3 font-semibold text-slate-800">${itemName}</td>
+                        <td class="p-3 text-xs text-slate-500">${item.category || 'Stationery'}</td>
+                        <td class="p-3 text-center font-bold text-indigo-950">${item.qty} <span class="text-xs text-slate-500 font-normal">${item.unit}</span></td>
+                        <td class="p-3 text-xs text-slate-600 font-mono">${item.location || '-'}</td>
+                        <td class="p-3">${statusBadge}</td>
+                        <td class="p-3 text-right">
+                            <button onclick="openEditStockModal('${itemName}')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded font-semibold transition">
+                                <i class="fa-solid fa-pen-to-square mr-1"></i>වෙනස් කරන්න
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openEditStockModal(itemName) {
+            const item = inventory[itemName];
+            if (!item) return;
+
+            document.getElementById('editStockItemName').value = itemName;
+            document.getElementById('editStockTitle').textContent = itemName;
+            document.getElementById('editStockQuantity').value = item.qty;
+            document.getElementById('editStockLocation').value = item.location || '';
+            document.getElementById('editStockModal').classList.remove('hidden');
+        }
+
+        function closeEditStockModal() {
+            document.getElementById('editStockModal').classList.add('hidden');
+        }
+
+        function saveStockEdit() {
+            const itemName = document.getElementById('editStockItemName').value;
+            const newQty = parseInt(document.getElementById('editStockQuantity').value);
+            const newLoc = document.getElementById('editStockLocation').value.trim();
+
+            if (inventory[itemName]) {
+                inventory[itemName].qty = isNaN(newQty) ? 0 : newQty;
+                inventory[itemName].location = newLoc;
+                saveInventory();
+                populateFormItemDropdown();
+                renderInventoryTable();
+                closeEditStockModal();
+                showToast(`${itemName} තොග ප්‍රමාණය වෙනස් කරන ලදී!`, 'success');
+            }
+        }
+
+        function sendAccountantSMSAlert(requestData) {
+            const message = `නව ලිපිද්‍රව්‍ය ඉල්ලීමක් [${requestData.id}]: ${requestData.department} (${requestData.employee}) විසින් ${requestData.item} ප්‍රමාණය ${requestData.quantity} ඉල්ලා ඇත. ප්‍රමුඛතාවය: ${requestData.priority}. කරුණාකර පරික්ෂා කරන්න.`;
+            const smsUrl = `sms:${ACCOUNTANT_MOBILE}?body=${encodeURIComponent(message)}`;
+            window.location.href = smsUrl;
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const newReq = {
+                id: 'REQ-' + Math.floor(1000 + Math.random() * 9000),
+                department: document.getElementById('department').value,
+                employee: document.getElementById('employeeName').value,
+                item: document.getElementById('stationeryItem').value,
+                quantity: parseInt(document.getElementById('quantity').value),
+                priority: document.getElementById('priority').value,
+                status: 'Pending',
+                accountantRemark: '',
+                storeRemark: '',
+                timestamp: new Date().toLocaleString('si-LK', { hour12: true })
+            };
+
+            requests.unshift(newReq);
+            saveRequests();
+            document.getElementById('stationeryForm').reset();
+            
+            document.querySelector('input[name="officerType"][value="head"]').checked = true;
+            toggleOfficerInput();
+
+            showToast(`ඉල්ලුම් අංක ${newReq.id} සාර්ථකව යොමු කරන ලදී!`, 'success');
+
+            renderRequests();
+            updateStats();
+
+            setTimeout(() => {
+                sendAccountantSMSAlert(newReq);
+            }, 800);
+        }
+
+        function exportToExcel() {
+            if (requests.length === 0) {
+                showToast('නිකුත් කිරීමට දත්ත නොමැත!', 'error');
+                return;
+            }
+
+            const excelData = requests.map(r => ({
+                'ඉල්ලුම් අංකය': r.id,
+                'අංශය / දෙපාර්තමේන්තුව': r.department,
+                'බලයලත් නිලධාරියා': r.employee,
+                'ඉල්ලුම් කළ භාණ්ඩය': r.item,
+                'ප්‍රමාණය': r.quantity,
+                'ප්‍රමුඛතාවය': r.priority,
+                'තත්ත්වය': r.status,
+                'ගණකාධිකාරී සටහන්': r.accountantRemark || 'නැත',
+                'ගබඩාකරු සටහන්': r.storeRemark || 'නැත',
+                'දිනය සහ වේලාව': r.timestamp
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Stationery Requests");
+
+            XLSX.writeFile(workbook, `Stationery_Requests_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            showToast('Excel ගොනුව සාර්ථකව භාගත විය!', 'success');
+        }
+
+        function printStorekeeperReport() {
+            const printTableBody = document.getElementById('printTableBody');
+            document.getElementById('printDate').textContent = new Date().toLocaleDateString('si-LK');
+
+            if (requests.length === 0) {
+                printTableBody.innerHTML = `<tr><td colspan="7" class="text-center p-4">ඉල්ලීම් කිසිවක් නැත.</td></tr>`;
+            } else {
+                printTableBody.innerHTML = requests.map(r => `
+                    <tr class="border-b border-black">
+                        <td class="border border-black p-2 font-mono">${r.id}</td>
+                        <td class="border border-black p-2">${r.department}</td>
+                        <td class="border border-black p-2">${r.employee}</td>
+                        <td class="border border-black p-2">${r.item}</td>
+                        <td class="border border-black p-2 text-center font-bold">${r.quantity}</td>
+                        <td class="border border-black p-2 text-center">${r.status}</td>
+                        <td class="border border-black p-2"></td>
+                    </tr>
+                `).join('');
+            }
+
+            const printArea = document.getElementById('printableArea');
+            printArea.classList.remove('hidden');
+            window.print();
+            printArea.classList.add('hidden');
+        }
+
+        function renderRequests() {
+            const tbody = document.getElementById('requestsTableBody');
+            const filter = document.getElementById('filterStatus').value;
+            const filtered = requests.filter(r => {
+                if (filter === 'All' || filter === 'Branch') return true;
+                if (filter.startsWith('DEPT:')) {
+                    const deptName = filter.replace('DEPT:', '');
+                    return r.department === deptName;
+                }
+                return r.status === filter;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">ඉල්ලීම් කිසිවක් හමු නොවීය.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(r => {
+                const badgeClass = r.status === 'Issued' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                                   r.status === 'Approved' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                   r.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
+                                   'bg-amber-100 text-amber-800 border-amber-300';
+
+                const statusSinhala = r.status === 'Issued' ? 'නිකුත් කළා' :
+                                      r.status === 'Approved' ? 'අනුමතයි' :
+                                      r.status === 'Rejected' ? 'ප්‍රතික්ෂේපිතයි' : 'අපේක්ෂාවෙන්';
+
+                let actionBtn = '';
+                if (currentUser.role === 'accountant' && r.status === 'Pending') {
+                    actionBtn = `<button onclick="openActionModal('${r.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1 rounded font-semibold transition"><i class="fa-solid fa-user-check mr-1"></i>සමාලෝචනය</button>`;
+                } else if (currentUser.role === 'storekeeper' && r.status === 'Approved') {
+                    actionBtn = `<button onclick="openActionModal('${r.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1 rounded font-semibold transition"><i class="fa-solid fa-box-open mr-1"></i>නිකුත් කරන්න</button>`;
+                } else {
+                    actionBtn = `<button onclick="openActionModal('${r.id}')" class="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs px-2.5 py-1 rounded font-semibold transition"><i class="fa-solid fa-eye mr-1"></i>විස්තර</button>`;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="p-3 font-mono font-bold text-indigo-900">${r.id}</td>
+                        <td class="p-3">
+                            <div class="font-semibold text-slate-800">${r.department}</div>
+                            <div class="text-xs text-indigo-600 font-medium"><i class="fa-solid fa-user-check mr-1"></i>${r.employee}</div>
+                        </td>
+                        <td class="p-3">
+                            <span class="font-semibold text-slate-800">${r.item}</span>
+                            <span class="ml-1 text-xs bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded">x${r.quantity}</span>
+                        </td>
+                        <td class="p-3">
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-full border ${badgeClass}">${statusSinhala}</span>
+                        </td>
+                        <td class="p-3 text-right">${actionBtn}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateStats() {
+            document.getElementById('statTotal').textContent = requests.length;
+            document.getElementById('statPending').textContent = requests.filter(r => r.status === 'Pending').length;
+            document.getElementById('statApproved').textContent = requests.filter(r => r.status === 'Approved').length;
+            document.getElementById('statIssued').textContent = requests.filter(r => r.status === 'Issued').length;
+        }
+
+        function openActionModal(id) {
+            activeRequestId = id;
+            const req = requests.find(r => r.id === id);
+            if (!req) return;
+
+            const modalDetails = document.getElementById('modalDetails');
+            const accountantControls = document.getElementById('accountantControls');
+            const storekeeperControls = document.getElementById('storekeeperControls');
+            const stockInfo = document.getElementById('stockAvailableInfo');
+
+            modalDetails.innerHTML = `
+                <p><strong>අංකය:</strong> ${req.id}</p>
+                <p><strong>අංශය:</strong> ${req.department}</p>
+                <p><strong>නිලධාරියා:</strong> ${req.employee}</p>
+                <p><strong>භාණ්ඩය:</strong> ${req.item} (ප්‍රමාණය: ${req.quantity})</p>
+                <p><strong>ප්‍රමුඛතාවය:</strong> ${req.priority}</p>
+                <p><strong>දිනය:</strong> ${req.timestamp}</p>
+                ${req.accountantRemark ? `<p class="text-indigo-900 mt-2 border-t pt-1"><strong>ගණකාධිකාරී සටහන්:</strong> ${req.accountantRemark}</p>` : ''}
+                ${req.storeRemark ? `<p class="text-emerald-900 border-t pt-1"><strong>ගබඩාකරු සටහන්:</strong> ${req.storeRemark}</p>` : ''}
+            `;
+
+            if (currentUser.role === 'accountant' && req.status === 'Pending') {
+                accountantControls.classList.remove('hidden');
+                storekeeperControls.classList.add('hidden');
+            } else if (currentUser.role === 'storekeeper' && req.status === 'Approved') {
+                accountantControls.classList.add('hidden');
+                storekeeperControls.classList.remove('hidden');
+
+                // Stock check info
+                const currStock = inventory[req.item] ? inventory[req.item].qty : 0;
+                if (currStock >= req.quantity) {
+                    stockInfo.className = "text-xs p-2.5 rounded-lg font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200";
+                    stockInfo.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> ගබඩාවේ තොග පවතී. දැනට පවතින ප්‍රමාණය: <strong>${currStock}</strong>`;
+                } else {
+                    stockInfo.className = "text-xs p-2.5 rounded-lg font-semibold bg-red-50 text-red-800 border border-red-200";
+                    stockInfo.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> අවධානයයි: ගබඩාවේ ප්‍රමාණවත් තොග නැත! (දැනට පවතින්නේ: <strong>${currStock}</strong>)`;
+                }
+            } else {
+                accountantControls.classList.add('hidden');
+                storekeeperControls.classList.add('hidden');
+            }
+
+            document.getElementById('actionModal').classList.remove('hidden');
+        }
+
+        function closeActionModal() {
+            document.getElementById('actionModal').classList.add('hidden');
+            activeRequestId = null;
+        }
+
+        function processAccountantAction(status) {
+            if (!activeRequestId) return;
+            const remark = document.getElementById('accountantRemark').value.trim();
+            const index = requests.findIndex(r => r.id === activeRequestId);
+
+            if (index !== -1) {
+                requests[index].status = status;
+                requests[index].accountantRemark = remark;
+                saveRequests();
+                renderRequests();
+                updateStats();
+                closeActionModal();
+                showToast(`ඉල්ලීම ${status === 'Approved' ? 'අනුමත කළා' : 'ප්‍රතික්ෂේප කළා'}!`, status === 'Approved' ? 'success' : 'error');
+            }
+        }
+
+        function processStorekeeperIssue() {
+            if (!activeRequestId) return;
+            const remark = document.getElementById('storekeeperRemark').value.trim();
+            const index = requests.findIndex(r => r.id === activeRequestId);
+
+            if (index !== -1) {
+                const req = requests[index];
+                
+                // Deduct stock if available
+                if (inventory[req.item]) {
+                    if (inventory[req.item].qty >= req.quantity) {
+                        inventory[req.item].qty -= req.quantity;
+                    } else {
+                        inventory[req.item].qty = 0; // Prevent negative stock
+                    }
+                    saveInventory();
+                    populateFormItemDropdown();
+                    renderInventoryTable();
+                }
+
+                requests[index].status = 'Issued';
+                requests[index].storeRemark = remark;
+                saveRequests();
+                renderRequests();
+                updateStats();
+                closeActionModal();
+                showToast('තොගයෙන් අඩු කර භාණ්ඩ නිකුත් කිරීම සාර්ථකයි!', 'success');
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-red-600' : 'bg-indigo-600';
+
+            toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-lg text-sm flex items-center space-x-2 pointer-events-auto toast-enter`;
+            toast.innerHTML = `
+                <i class="fa-solid ${type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-triangle-exclamation' : 'fa-info-circle'}"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
